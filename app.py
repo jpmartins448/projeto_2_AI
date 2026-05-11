@@ -1,13 +1,29 @@
 from pathlib import Path
 
 import joblib
+import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+)
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 
 
 MODEL_FILE = "churn_model.pkl"
 FEATURE_NAMES_FILE = "feature_names.pkl"
 PLOTS_DIR = Path("plots")
+DATASET_FILE = "telecom_churn.csv"
 
 # Friendly labels for the UI while keeping model feature names unchanged
 FEATURE_LABELS = {
@@ -29,6 +45,12 @@ def load_artifacts():
     model = joblib.load(MODEL_FILE)
     feature_names = joblib.load(FEATURE_NAMES_FILE)
     return model, feature_names
+
+
+@st.cache_data(show_spinner=False)
+def load_dataset(file_path: str) -> pd.DataFrame:
+    """Load the churn dataset with Streamlit caching."""
+    return pd.read_csv(file_path)
 
 
 def apply_example(example: dict) -> None:
@@ -213,25 +235,30 @@ def prediction_section(model, feature_names):
         input_df = pd.DataFrame([input_data], columns=feature_names)
 
         prediction = int(model.predict(input_df)[0])
-        probability = float(model.predict_proba(input_df)[0][1]) * 100
+        probability = None
+        if hasattr(model, "predict_proba"):
+            probability = float(model.predict_proba(input_df)[0][1]) * 100
 
         if prediction == 1:
             st.error("Customer is likely to churn")
         else:
             st.success("Customer is not likely to churn")
 
-        st.metric("Churn Probability", f"{probability:.2f}%")
-        st.progress(min(max(probability / 100, 0), 1))
+        if probability is not None:
+            st.metric("Churn Probability", f"{probability:.2f}%")
+            st.progress(min(max(probability / 100, 0), 1))
 
-        risk_level, recommendation = interpret_risk(probability)
-        if risk_level == "Low Risk":
-            st.success(f"Risk Level: {risk_level}")
-        elif risk_level == "Medium Risk":
-            st.warning(f"Risk Level: {risk_level}")
+            risk_level, recommendation = interpret_risk(probability)
+            if risk_level == "Low Risk":
+                st.success(f"Risk Level: {risk_level}")
+            elif risk_level == "Medium Risk":
+                st.warning(f"Risk Level: {risk_level}")
+            else:
+                st.error(f"Risk Level: {risk_level}")
+
+            st.info(f"Recommendation: {recommendation}")
         else:
-            st.error(f"Risk Level: {risk_level}")
-
-        st.info(f"Recommendation: {recommendation}")
+            st.warning("This model does not provide probabilities.")
 
     with st.expander("Why this prediction?"):
         st.write(
@@ -281,6 +308,200 @@ def model_insights_section():
             st.caption(f"{title} plot not found at {path}.")
 
 
+def plot_metric_bars(results_df: pd.DataFrame, metric: str, title: str):
+    """Create a bar chart for a given metric using matplotlib."""
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.bar(results_df["Model"], results_df[metric], color="#4C78A8")
+    ax.set_title(title)
+    ax.set_xlabel("Model")
+    ax.set_ylabel(metric)
+
+    for idx, value in enumerate(results_df[metric]):
+        ax.text(idx, value, f"{value:.3f}", ha="center", va="bottom", fontsize=9)
+
+    fig.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+
+
+def plot_confusion_matrix(matrix, title: str):
+    """Plot a confusion matrix using matplotlib."""
+    fig, ax = plt.subplots(figsize=(5, 4))
+    cax = ax.imshow(matrix, cmap="Blues")
+    ax.set_title(title)
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+    ax.set_xticks([0, 1])
+    ax.set_yticks([0, 1])
+    ax.set_xticklabels(["0", "1"])
+    ax.set_yticklabels(["0", "1"])
+
+    for i in range(matrix.shape[0]):
+        for j in range(matrix.shape[1]):
+            ax.text(j, i, matrix[i, j], ha="center", va="center", color="black")
+
+    fig.colorbar(cax, ax=ax)
+    fig.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+
+
+def training_playground_section():
+    """Interactive model training playground."""
+    st.subheader("Model Training Playground")
+
+    if not Path(DATASET_FILE).exists():
+        st.error(f"Dataset not found: {DATASET_FILE}")
+        return
+
+    df = load_dataset(DATASET_FILE)
+
+    # User controls for training
+    test_size = st.slider("Test size", min_value=0.1, max_value=0.5, value=0.2, step=0.05)
+    random_state = st.number_input("Random state", value=42, step=1)
+    use_scaler = st.checkbox("Use StandardScaler", value=True)
+
+    selected_models = st.multiselect(
+        "Select models to train",
+        ["Logistic Regression", "Decision Tree", "Random Forest"],
+    )
+
+    st.markdown("**Logistic Regression settings**")
+    lr_max_iter = st.number_input("max_iter", value=1000, step=100)
+
+    st.markdown("**Decision Tree settings**")
+    dt_max_depth = st.selectbox("max_depth", ["None"] + list(range(1, 21)), index=0)
+    dt_min_samples_split = st.slider("min_samples_split", 2, 20, value=2)
+
+    st.markdown("**Random Forest settings**")
+    rf_n_estimators = st.slider("n_estimators", 10, 300, value=100, step=10)
+    rf_max_depth = st.selectbox("rf_max_depth", ["None"] + list(range(1, 21)), index=0)
+    rf_min_samples_split = st.slider("rf_min_samples_split", 2, 20, value=2)
+
+    st.caption(
+        "F1-score is useful for churn prediction because the dataset may be imbalanced, "
+        "meaning there are usually fewer churned customers than non-churned customers."
+    )
+
+    if st.button("Train selected models"):
+        if not selected_models:
+            st.warning("Please select at least one model to train.")
+            return
+
+        feature_names = [col for col in df.columns if col != "Churn"]
+        X = df[feature_names]
+        y = df["Churn"]
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X,
+            y,
+            test_size=test_size,
+            random_state=int(random_state),
+            stratify=y,
+        )
+
+        results = []
+        trained_models = {}
+
+        for model_name in selected_models:
+            steps = []
+            if use_scaler:
+                steps.append(("scaler", StandardScaler()))
+
+            if model_name == "Logistic Regression":
+                model = LogisticRegression(max_iter=int(lr_max_iter), random_state=int(random_state))
+            elif model_name == "Decision Tree":
+                max_depth = None if dt_max_depth == "None" else int(dt_max_depth)
+                model = DecisionTreeClassifier(
+                    max_depth=max_depth,
+                    min_samples_split=dt_min_samples_split,
+                    random_state=int(random_state),
+                )
+            else:
+                max_depth = None if rf_max_depth == "None" else int(rf_max_depth)
+                model = RandomForestClassifier(
+                    n_estimators=rf_n_estimators,
+                    max_depth=max_depth,
+                    min_samples_split=rf_min_samples_split,
+                    random_state=int(random_state),
+                )
+
+            steps.append(("model", model))
+            pipeline = Pipeline(steps=steps)
+            pipeline.fit(X_train, y_train)
+
+            y_pred = pipeline.predict(X_test)
+
+            metrics = {
+                "Model": model_name,
+                "Accuracy": accuracy_score(y_test, y_pred),
+                "Precision": precision_score(y_test, y_pred, zero_division=0),
+                "Recall": recall_score(y_test, y_pred, zero_division=0),
+                "F1": f1_score(y_test, y_pred, zero_division=0),
+                "ConfusionMatrix": confusion_matrix(y_test, y_pred),
+                "ClassificationReport": classification_report(y_test, y_pred, zero_division=0),
+            }
+
+            results.append(metrics)
+            trained_models[model_name] = pipeline
+
+        results_df = pd.DataFrame(
+            [
+                {
+                    "Model": r["Model"],
+                    "Accuracy": r["Accuracy"],
+                    "Precision": r["Precision"],
+                    "Recall": r["Recall"],
+                    "F1": r["F1"],
+                }
+                for r in results
+            ]
+        ).sort_values(by="F1", ascending=False)
+
+        st.dataframe(results_df, use_container_width=True)
+
+        best_model_name = results_df.iloc[0]["Model"]
+        best_metrics = next(r for r in results if r["Model"] == best_model_name)
+        best_pipeline = trained_models[best_model_name]
+
+        st.session_state["best_trained_model"] = best_pipeline
+        st.session_state["best_feature_names"] = feature_names
+        st.session_state["best_metrics"] = best_metrics
+        st.session_state["results_df"] = results_df
+
+    if "results_df" in st.session_state:
+        results_df = st.session_state["results_df"]
+        best_metrics = st.session_state["best_metrics"]
+
+        st.markdown("### Model Comparison")
+        plot_metric_bars(results_df, "Accuracy", "Model Accuracy Comparison")
+        plot_metric_bars(results_df, "F1", "Model F1-Score Comparison")
+
+        st.markdown("### Best Model Summary")
+        st.success(f"Best model: {best_metrics['Model']}")
+        st.write(
+            {
+                "Accuracy": best_metrics["Accuracy"],
+                "Precision": best_metrics["Precision"],
+                "Recall": best_metrics["Recall"],
+                "F1": best_metrics["F1"],
+            }
+        )
+
+        plot_confusion_matrix(best_metrics["ConfusionMatrix"], "Best Model Confusion Matrix")
+
+        st.markdown("### Classification Report")
+        st.text(best_metrics["ClassificationReport"])
+
+        if st.button("Save this model as production model"):
+            st.warning(
+                "This will replace the model used in the Prediction tab."
+            )
+            joblib.dump(st.session_state["best_trained_model"], MODEL_FILE)
+            joblib.dump(st.session_state["best_feature_names"], FEATURE_NAMES_FILE)
+            st.success("Production model saved successfully.")
+
+
 def main():
     """Main app entry point."""
     st.set_page_config(page_title="Customer Churn Prediction Dashboard", layout="wide")
@@ -300,13 +521,16 @@ def main():
 
     model, feature_names = load_artifacts()
 
-    tabs = st.tabs(["Prediction", "Model Insights"])
+    tabs = st.tabs(["Prediction", "Model Insights", "Model Training Playground"])
 
     with tabs[0]:
         prediction_section(model, feature_names)
 
     with tabs[1]:
         model_insights_section()
+
+    with tabs[2]:
+        training_playground_section()
 
     st.markdown("---")
     st.caption(
