@@ -9,6 +9,20 @@ MODEL_FILE = "churn_model.pkl"
 FEATURE_NAMES_FILE = "feature_names.pkl"
 PLOTS_DIR = Path("plots")
 
+# Friendly labels for the UI while keeping model feature names unchanged
+FEATURE_LABELS = {
+    "AccountWeeks": "Account duration in weeks",
+    "ContractRenewal": "Contract renewed?",
+    "DataPlan": "Has data plan?",
+    "DataUsage": "Data usage",
+    "CustServCalls": "Customer service calls",
+    "DayMins": "Daily call minutes",
+    "DayCalls": "Daily calls",
+    "MonthlyCharge": "Monthly charge",
+    "OverageFee": "Overage fee",
+    "RoamMins": "Roaming minutes",
+}
+
 
 def load_artifacts():
     """Load the trained model and feature names from disk."""
@@ -17,25 +31,151 @@ def load_artifacts():
     return model, feature_names
 
 
+def apply_example(example: dict) -> None:
+    """Populate Streamlit session state with example values."""
+    for key, value in example.items():
+        st.session_state[key] = value
+
+
 def build_input_form():
     """Render input widgets and return a dictionary of user inputs."""
     st.subheader("Customer Information")
 
+    # Demo presets for quick testing
+    example_low = {
+        "AccountWeeks": 140,
+        "ContractRenewal": 1,
+        "DataPlan": 1,
+        "DataUsage": 3.2,
+        "CustServCalls": 0,
+        "DayMins": 180.0,
+        "DayCalls": 120,
+        "MonthlyCharge": 70.0,
+        "OverageFee": 3.5,
+        "RoamMins": 5.0,
+    }
+    example_medium = {
+        "AccountWeeks": 90,
+        "ContractRenewal": 0,
+        "DataPlan": 1,
+        "DataUsage": 2.1,
+        "CustServCalls": 2,
+        "DayMins": 250.0,
+        "DayCalls": 100,
+        "MonthlyCharge": 85.0,
+        "OverageFee": 9.0,
+        "RoamMins": 9.5,
+    }
+    example_high = {
+        "AccountWeeks": 45,
+        "ContractRenewal": 0,
+        "DataPlan": 0,
+        "DataUsage": 0.2,
+        "CustServCalls": 4,
+        "DayMins": 320.0,
+        "DayCalls": 80,
+        "MonthlyCharge": 98.0,
+        "OverageFee": 15.0,
+        "RoamMins": 15.5,
+    }
+
+    demo_col1, demo_col2, demo_col3 = st.columns(3)
+    with demo_col1:
+        if st.button("Low-risk customer"):
+            apply_example(example_low)
+    with demo_col2:
+        if st.button("Medium-risk customer"):
+            apply_example(example_medium)
+    with demo_col3:
+        if st.button("High-risk customer"):
+            apply_example(example_high)
+
+    # Ensure default values exist in session state
+    defaults = {
+        "AccountWeeks": 128,
+        "ContractRenewal": 1,
+        "DataPlan": 1,
+        "DataUsage": 2.7,
+        "CustServCalls": 1,
+        "DayMins": 265.1,
+        "DayCalls": 110,
+        "MonthlyCharge": 89.0,
+        "OverageFee": 9.87,
+        "RoamMins": 10.0,
+    }
+    for key, value in defaults.items():
+        st.session_state.setdefault(key, value)
+
     col1, col2 = st.columns(2)
 
     with col1:
-        account_weeks = st.number_input("AccountWeeks", min_value=0, value=128)
-        contract_renewal = st.selectbox("ContractRenewal", ["Yes", "No"], index=0)
-        data_plan = st.selectbox("DataPlan", ["Yes", "No"], index=0)
-        data_usage = st.number_input("DataUsage", min_value=0.0, value=2.7, step=0.1)
-        cust_serv_calls = st.number_input("CustServCalls", min_value=0, value=1)
+        account_weeks = st.number_input(
+            FEATURE_LABELS["AccountWeeks"],
+            min_value=0,
+            value=st.session_state["AccountWeeks"],
+            key="AccountWeeks",
+        )
+        contract_renewal = st.selectbox(
+            FEATURE_LABELS["ContractRenewal"],
+            ["Yes", "No"],
+            index=0 if st.session_state["ContractRenewal"] == 1 else 1,
+            key="ContractRenewalSelect",
+        )
+        data_plan = st.selectbox(
+            FEATURE_LABELS["DataPlan"],
+            ["Yes", "No"],
+            index=0 if st.session_state["DataPlan"] == 1 else 1,
+            key="DataPlanSelect",
+        )
+        data_usage = st.number_input(
+            FEATURE_LABELS["DataUsage"],
+            min_value=0.0,
+            value=st.session_state["DataUsage"],
+            step=0.1,
+            key="DataUsage",
+        )
+        cust_serv_calls = st.number_input(
+            FEATURE_LABELS["CustServCalls"],
+            min_value=0,
+            value=st.session_state["CustServCalls"],
+            key="CustServCalls",
+        )
 
     with col2:
-        day_mins = st.number_input("DayMins", min_value=0.0, value=265.1, step=0.1)
-        day_calls = st.number_input("DayCalls", min_value=0, value=110)
-        monthly_charge = st.number_input("MonthlyCharge", min_value=0.0, value=89.0, step=0.1)
-        overage_fee = st.number_input("OverageFee", min_value=0.0, value=9.87, step=0.01)
-        roam_mins = st.number_input("RoamMins", min_value=0.0, value=10.0, step=0.1)
+        day_mins = st.number_input(
+            FEATURE_LABELS["DayMins"],
+            min_value=0.0,
+            value=st.session_state["DayMins"],
+            step=0.1,
+            key="DayMins",
+        )
+        day_calls = st.number_input(
+            FEATURE_LABELS["DayCalls"],
+            min_value=0,
+            value=st.session_state["DayCalls"],
+            key="DayCalls",
+        )
+        monthly_charge = st.number_input(
+            FEATURE_LABELS["MonthlyCharge"],
+            min_value=0.0,
+            value=st.session_state["MonthlyCharge"],
+            step=0.1,
+            key="MonthlyCharge",
+        )
+        overage_fee = st.number_input(
+            FEATURE_LABELS["OverageFee"],
+            min_value=0.0,
+            value=st.session_state["OverageFee"],
+            step=0.01,
+            key="OverageFee",
+        )
+        roam_mins = st.number_input(
+            FEATURE_LABELS["RoamMins"],
+            min_value=0.0,
+            value=st.session_state["RoamMins"],
+            step=0.1,
+            key="RoamMins",
+        )
 
     # Map categorical inputs to numeric values
     contract_renewal_value = 1 if contract_renewal == "Yes" else 0
@@ -81,10 +221,28 @@ def prediction_section(model, feature_names):
             st.success("Customer is not likely to churn")
 
         st.metric("Churn Probability", f"{probability:.2f}%")
+        st.progress(min(max(probability / 100, 0), 1))
 
         risk_level, recommendation = interpret_risk(probability)
-        st.info(f"Risk Level: {risk_level}")
-        st.write(f"Recommendation: {recommendation}")
+        if risk_level == "Low Risk":
+            st.success(f"Risk Level: {risk_level}")
+        elif risk_level == "Medium Risk":
+            st.warning(f"Risk Level: {risk_level}")
+        else:
+            st.error(f"Risk Level: {risk_level}")
+
+        st.info(f"Recommendation: {recommendation}")
+
+    with st.expander("Why this prediction?"):
+        st.write(
+            "The model uses customer behaviour and billing indicators such as customer "
+            "service calls, contract renewal status, monthly charge, daily call minutes "
+            "and overage fees to estimate churn risk."
+        )
+
+        feature_importance_path = PLOTS_DIR / "feature_importance.png"
+        if feature_importance_path.exists():
+            st.image(str(feature_importance_path), use_container_width=True)
 
 
 def model_insights_section():
@@ -92,16 +250,33 @@ def model_insights_section():
     st.subheader("Model Insights")
 
     plot_files = [
-        ("Churn Distribution", PLOTS_DIR / "churn_distribution.png"),
-        ("F1 Comparison", PLOTS_DIR / "model_f1_comparison.png"),
-        ("Confusion Matrix", PLOTS_DIR / "best_model_confusion_matrix.png"),
-        ("Feature Importance", PLOTS_DIR / "feature_importance.png"),
+        (
+            "Churn Distribution",
+            PLOTS_DIR / "churn_distribution.png",
+            "Shows the balance between churned and non-churned customers.",
+        ),
+        (
+            "F1-Score Comparison",
+            PLOTS_DIR / "model_f1_comparison.png",
+            "Compares model performance with an emphasis on class imbalance.",
+        ),
+        (
+            "Confusion Matrix",
+            PLOTS_DIR / "best_model_confusion_matrix.png",
+            "Summarises correct and incorrect predictions for each class.",
+        ),
+        (
+            "Feature Importance",
+            PLOTS_DIR / "feature_importance.png",
+            "Highlights which variables influenced the model the most.",
+        ),
     ]
 
-    for title, path in plot_files:
+    for title, path, explanation in plot_files:
         if path.exists():
             with st.expander(title, expanded=False):
                 st.image(str(path), use_container_width=True)
+                st.caption(explanation)
         else:
             st.caption(f"{title} plot not found at {path}.")
 
@@ -113,6 +288,10 @@ def main():
     st.title("Customer Churn Prediction Dashboard")
     st.write(
         "This app predicts whether a telecom customer is likely to cancel their subscription."
+    )
+    st.info(
+        "This proof of concept helps telecom companies identify customers at risk of "
+        "cancellation, allowing retention teams to act before losing revenue."
     )
 
     if not Path(MODEL_FILE).exists() or not Path(FEATURE_NAMES_FILE).exists():
@@ -128,6 +307,13 @@ def main():
 
     with tabs[1]:
         model_insights_section()
+
+    st.markdown("---")
+    st.caption(
+        "This model was trained on public or artificial data and is intended as a proof "
+        "of concept. A production system would require real customer data, privacy "
+        "validation, monitoring and regular retraining."
+    )
 
 
 if __name__ == "__main__":
