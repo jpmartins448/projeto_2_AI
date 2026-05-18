@@ -65,18 +65,6 @@ def build_input_form():
 
     # Demo presets for quick testing
     example_low = {
-        "AccountWeeks": 140,
-        "ContractRenewal": 1,
-        "DataPlan": 1,
-        "DataUsage": 3.2,
-        "CustServCalls": 0,
-        "DayMins": 180.0,
-        "DayCalls": 120,
-        "MonthlyCharge": 70.0,
-        "OverageFee": 3.5,
-        "RoamMins": 5.0,
-    }
-    example_medium = {
         "AccountWeeks": 90,
         "ContractRenewal": 0,
         "DataPlan": 1,
@@ -88,17 +76,29 @@ def build_input_form():
         "OverageFee": 9.0,
         "RoamMins": 9.5,
     }
+    example_medium = {
+        "AccountWeeks": 140,
+        "ContractRenewal": 1,
+        "DataPlan": 1,
+        "DataUsage": 3.2,
+        "CustServCalls": 0,
+        "DayMins": 180.0,
+        "DayCalls": 120,
+        "MonthlyCharge": 70.0,
+        "OverageFee": 3.5,
+        "RoamMins": 5.0,
+    }
     example_high = {
-        "AccountWeeks": 45,
-        "ContractRenewal": 0,
-        "DataPlan": 0,
+        "AccountWeeks": 10,
+        "ContractRenewal": 1,
+        "DataPlan": 1,
         "DataUsage": 0.2,
-        "CustServCalls": 4,
-        "DayMins": 320.0,
-        "DayCalls": 80,
-        "MonthlyCharge": 98.0,
-        "OverageFee": 15.0,
-        "RoamMins": 15.5,
+        "CustServCalls": 5,
+        "DayMins": 10.0,
+        "DayCalls": 5,
+        "MonthlyCharge": 250.0,
+        "OverageFee": 30.0,
+        "RoamMins": 5.0,
     }
 
     demo_col1, demo_col2, demo_col3 = st.columns(3)
@@ -221,7 +221,7 @@ def interpret_risk(probability: float):
     """Return risk level and recommendation based on churn probability."""
     if probability < 30:
         return "Low Risk", "No immediate action required."
-    if probability <= 70:
+    if probability <= 60:
         return "Medium Risk", "Monitor customer and consider a retention offer."
     return "High Risk", "Prioritise this customer for proactive retention."
 
