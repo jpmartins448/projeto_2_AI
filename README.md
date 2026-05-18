@@ -1,24 +1,23 @@
-# Telecom Customer Churn Prediction Dashboard
+# Telecom Customer Churn Risk Dashboard
 
 ## Project Overview
 Telecom providers face revenue loss when customers cancel their subscriptions. This project delivers a churn prediction system that helps identify at-risk customers using a machine learning model and a Streamlit web app. The application predicts churn probability, assigns a risk level, and provides model insights to support retention strategies.
 
 ## Features
 - Predict customer churn with probability and risk level.
-- Interactive Streamlit dashboard with clean inputs and results.
+- Customer-facing Streamlit dashboard with clean inputs and results.
 - Model insights and evaluation plots for presentation and analysis.
-- Model Training Playground to train and compare models inside the app.
-- Customisable training parameters and hyperparameters.
-- Save the best model as the production model.
+- Offline training pipeline with cross-validation and grid search.
+- Robustness via small Gaussian noise added to training features.
 
 ## Machine Learning Pipeline
 1. Data loading from a CSV dataset.
 2. Feature selection and target separation (Churn).
 3. Train/test split with stratification.
-4. Optional feature scaling with StandardScaler.
-5. Model training for multiple algorithms.
-6. Evaluation using accuracy, precision, recall, F1-score, and confusion matrix.
-7. Model selection based on F1-score.
+4. Small Gaussian noise added to training features only (robustness).
+5. StratifiedKFold cross-validation with GridSearchCV on the training split.
+6. Model selection based on mean cross-validation F1-score.
+7. Holdout test evaluation for unbiased final metrics.
 8. Saving the best pipeline and feature names for future predictions.
 
 ## Models Used
@@ -63,13 +62,6 @@ streamlit run app.py
 - Confusion matrix: Breakdown of correct and incorrect predictions.
 
 F1-score is especially important for churn prediction because churned customers are often the minority class, and accuracy alone can be misleading.
-
-## Future Improvements
-- Train with real telecom data for stronger generalisation.
-- Explore advanced models such as gradient boosting.
-- Deploy the app to a cloud platform for wider access.
-- Add explainable AI methods to justify predictions.
-- Enable real-time scoring with streaming inputs.
 
 ## Disclaimer
 This system is a proof of concept created for educational purposes. It is not intended for production use without further validation and real customer data.
