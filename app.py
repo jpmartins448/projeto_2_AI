@@ -25,7 +25,6 @@ FEATURE_NAMES_FILE = "feature_names.pkl"
 PLOTS_DIR = Path("plots")
 DATASET_FILE = "telecom_churn.csv"
 
-# Friendly labels for the UI while keeping model feature names unchanged
 FEATURE_LABELS = {
     "AccountWeeks": "Account duration in weeks",
     "ContractRenewal": "Contract renewed?",
@@ -39,31 +38,26 @@ FEATURE_LABELS = {
     "RoamMins": "Roaming minutes",
 }
 
-
+# Load the trained model and feature names from disk
 def load_artifacts():
-    """Load the trained model and feature names from disk."""
     model = joblib.load(MODEL_FILE)
     feature_names = joblib.load(FEATURE_NAMES_FILE)
     return model, feature_names
 
-
+# Load the churn dataset with Streamlit caching
 @st.cache_data(show_spinner=False)
 def load_dataset(file_path: str) -> pd.DataFrame:
-    """Load the churn dataset with Streamlit caching."""
     return pd.read_csv(file_path)
 
-
+# Populate Streamlit session state with example values
 def apply_example(example: dict) -> None:
-    """Populate Streamlit session state with example values."""
     for key, value in example.items():
         st.session_state[key] = value
 
-
+# Render input widgets and return a dictionary of user inputs
 def build_input_form():
-    """Render input widgets and return a dictionary of user inputs."""
     st.subheader("Customer Information")
 
-    # Demo presets for quick testing
     example_low = {
         "AccountWeeks": 90,
         "ContractRenewal": 0,
@@ -112,7 +106,6 @@ def build_input_form():
         if st.button("High-risk customer"):
             apply_example(example_high)
 
-    # Ensure default values exist in session state
     defaults = {
         "AccountWeeks": 128,
         "ContractRenewal": 1,
@@ -199,7 +192,6 @@ def build_input_form():
             key="RoamMins",
         )
 
-    # Map categorical inputs to numeric values
     contract_renewal_value = 1 if contract_renewal == "Yes" else 0
     data_plan_value = 1 if data_plan == "Yes" else 0
 
@@ -216,22 +208,19 @@ def build_input_form():
         "RoamMins": roam_mins,
     }
 
-
+# Return risk level and recommendation based on churn probability
 def interpret_risk(probability: float):
-    """Return risk level and recommendation based on churn probability."""
     if probability < 30:
         return "Low Risk", "No immediate action required."
     if probability <= 60:
         return "Medium Risk", "Monitor customer and consider a retention offer."
     return "High Risk", "Prioritise this customer for proactive retention."
 
-
+# Render prediction controls and results
 def prediction_section(model, feature_names):
-    """Render prediction controls and results."""
     input_data = build_input_form()
 
     if st.button("Predict Churn"):
-        # Ensure column order matches the trained model
         input_df = pd.DataFrame([input_data], columns=feature_names)
 
         prediction = int(model.predict(input_df)[0])
@@ -262,18 +251,15 @@ def prediction_section(model, feature_names):
 
     with st.expander("Why this prediction?"):
         st.write(
-            "The model uses customer behaviour and billing indicators such as customer "
-            "service calls, contract renewal status, monthly charge, daily call minutes "
-            "and overage fees to estimate churn risk."
+            "The model uses customer behaviour and billing indicators such as customer service calls, contract renewal status, monthly charge, daily call minutes and overage fees to estimate churn risk."
         )
 
         feature_importance_path = PLOTS_DIR / "feature_importance.png"
         if feature_importance_path.exists():
             st.image(str(feature_importance_path), use_container_width=True)
 
-
+# Display available plots from the training pipeline
 def model_insights_section():
-    """Display available plots from the training pipeline."""
     st.subheader("Model Insights")
 
     plot_files = [
@@ -307,9 +293,8 @@ def model_insights_section():
         else:
             st.caption(f"{title} plot not found at {path}.")
 
-
+# Create a bar chart for a given metric using matplotlib.
 def plot_metric_bars(results_df: pd.DataFrame, metric: str, title: str):
-    """Create a bar chart for a given metric using matplotlib."""
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.bar(results_df["Model"], results_df[metric], color="#4C78A8")
     ax.set_title(title)
@@ -323,9 +308,9 @@ def plot_metric_bars(results_df: pd.DataFrame, metric: str, title: str):
     st.pyplot(fig)
     plt.close(fig)
 
-
+# Plot a confusion matrix using matplotlib.
 def plot_confusion_matrix(matrix, title: str):
-    """Plot a confusion matrix using matplotlib."""
+
     fig, ax = plt.subplots(figsize=(5, 4))
     cax = ax.imshow(matrix, cmap="Blues")
     ax.set_title(title)
@@ -345,9 +330,8 @@ def plot_confusion_matrix(matrix, title: str):
     st.pyplot(fig)
     plt.close(fig)
 
-
+# Interactive model training playground
 def training_playground_section():
-    """Interactive model training playground."""
     st.subheader("Model Training Playground")
 
     if not Path(DATASET_FILE).exists():
@@ -356,7 +340,6 @@ def training_playground_section():
 
     df = load_dataset(DATASET_FILE)
 
-    # User controls for training
     test_size = st.slider("Test size", min_value=0.1, max_value=0.5, value=0.2, step=0.05)
     random_state = st.number_input("Random state", value=42, step=1)
     use_scaler = st.checkbox("Use StandardScaler", value=True)
@@ -379,8 +362,7 @@ def training_playground_section():
     rf_min_samples_split = st.slider("rf_min_samples_split", 2, 20, value=2)
 
     st.caption(
-        "F1-score is useful for churn prediction because the dataset may be imbalanced, "
-        "meaning there are usually fewer churned customers than non-churned customers."
+        "F1-score is useful for churn prediction because the dataset may be imbalanced, meaning there are usually fewer churned customers than non-churned customers."
     )
 
     if st.button("Train selected models"):
@@ -503,7 +485,6 @@ def training_playground_section():
 
 
 def main():
-    """Main app entry point."""
     st.set_page_config(page_title="Customer Churn Prediction Dashboard", layout="wide")
 
     st.title("Customer Churn Prediction Dashboard")
@@ -511,8 +492,7 @@ def main():
         "This app predicts whether a telecom customer is likely to cancel their subscription."
     )
     st.info(
-        "This proof of concept helps telecom companies identify customers at risk of "
-        "cancellation, allowing retention teams to act before losing revenue."
+        "This proof of concept helps telecom companies identify customers at risk of cancellation, allowing retention teams to act before losing revenue."
     )
 
     if not Path(MODEL_FILE).exists() or not Path(FEATURE_NAMES_FILE).exists():
@@ -534,9 +514,7 @@ def main():
 
     st.markdown("---")
     st.caption(
-        "This model was trained on public or artificial data and is intended as a proof "
-        "of concept. A production system would require real customer data, privacy "
-        "validation, monitoring and regular retraining."
+        "This model was trained on public or artificial data and is intended as a proof of concept. A production system would require real customer data, privacy validation, monitoring and regular retraining."
     )
 
 

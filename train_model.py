@@ -27,23 +27,20 @@ FEATURE_NAMES_FILE = "feature_names.pkl"
 RANDOM_STATE = 42
 PLOTS_DIR = Path("plots")
 
-
+# Load the dataset from CSV with a fallback to the provided telecom file
 def load_dataset() -> pd.DataFrame:
-    """Load the dataset from CSV with a fallback to the provided telecom file."""
     
     return pd.read_csv(DATA_FILE_FALLBACK)
 
-
+# Print basic dataset inspection info for a quick sanity check
 def inspect_dataset(df: pd.DataFrame) -> None:
-    """Print basic dataset inspection info for a quick sanity check."""
     print("First 5 rows:\n", df.head())
     print("\nShape:", df.shape)
     print("\nMissing values per column:\n", df.isna().sum())
     print("\nClass distribution (Churn):\n", df["Churn"].value_counts())
 
-
+# Build preprocessing pipeline for numeric features
 def build_preprocessing_pipeline(feature_names):
-    """Build preprocessing pipeline for numeric features."""
     scaler = StandardScaler()
 
     preprocessor = ColumnTransformer(
@@ -53,9 +50,8 @@ def build_preprocessing_pipeline(feature_names):
 
     return preprocessor
 
-
+# Evaluate the trained pipeline and return key metrics
 def evaluate_model(model_name: str, pipeline: Pipeline, X_test, y_test) -> dict:
-    """Evaluate the trained pipeline and return key metrics."""
     y_pred = pipeline.predict(X_test)
 
     metrics = {
@@ -70,9 +66,8 @@ def evaluate_model(model_name: str, pipeline: Pipeline, X_test, y_test) -> dict:
 
     return metrics
 
-
+# Train multiple models and return the best pipeline and metrics
 def train_and_evaluate(df: pd.DataFrame):
-    """Train multiple models and return the best pipeline and metrics."""
     feature_names = [col for col in df.columns if col != "Churn"]
     X = df[feature_names]
     y = df["Churn"]
@@ -130,26 +125,22 @@ def train_and_evaluate(df: pd.DataFrame):
 
     return best_pipeline, best_metrics, results_table, feature_names
 
-
+# Save the trained pipeline and feature names to disk
 def save_artifacts(pipeline: Pipeline, feature_names):
-    """Save the trained pipeline and feature names to disk."""
     joblib.dump(pipeline, MODEL_FILE)
     joblib.dump(feature_names, FEATURE_NAMES_FILE)
 
-
+# Create the plots folder if it does not exist
 def ensure_plots_folder() -> None:
-    """Create the plots folder if it does not exist."""
     PLOTS_DIR.mkdir(parents=True, exist_ok=True)
 
-
+# Add numeric labels above bar charts for readability
 def add_bar_labels(ax, values) -> None:
-    """Add numeric labels above bar charts for readability."""
     for index, value in enumerate(values):
         ax.text(index, value, f"{value:.3f}", ha="center", va="bottom", fontsize=9)
 
-
+# Plot the churn distribution as a labeled bar chart
 def plot_churn_distribution(df: pd.DataFrame) -> None:
-    """Plot the churn distribution as a labeled bar chart."""
     counts = df["Churn"].value_counts().sort_index()
     labels = ["Non-churned (0)", "Churned (1)"]
 
@@ -168,9 +159,8 @@ def plot_churn_distribution(df: pd.DataFrame) -> None:
     fig.savefig(PLOTS_DIR / "churn_distribution.png", dpi=300)
     plt.close(fig)
 
-
+# Plot correlation heatmap using matplotlib imshow only
 def plot_correlation_heatmap(df: pd.DataFrame) -> None:
-    """Plot correlation heatmap using matplotlib imshow only."""
     corr = df.corr(numeric_only=True)
 
     fig, ax = plt.subplots(figsize=(10, 8))
@@ -187,9 +177,8 @@ def plot_correlation_heatmap(df: pd.DataFrame) -> None:
     fig.savefig(PLOTS_DIR / "correlation_heatmap.png", dpi=300)
     plt.close(fig)
 
-
+# Plot histograms for selected numeric features
 def plot_feature_histograms(df: pd.DataFrame) -> None:
-    """Plot histograms for selected numeric features."""
     features = [
         "AccountWeeks",
         "DataUsage",
@@ -212,9 +201,8 @@ def plot_feature_histograms(df: pd.DataFrame) -> None:
         fig.savefig(PLOTS_DIR / f"hist_{feature.lower()}.png", dpi=300)
         plt.close(fig)
 
-
+# Plot model accuracy comparison bar chart
 def plot_model_accuracy(results_table: pd.DataFrame) -> None:
-    """Plot model accuracy comparison bar chart."""
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.bar(results_table["Model"], results_table["Accuracy"], color="#4C78A8")
 
@@ -227,9 +215,8 @@ def plot_model_accuracy(results_table: pd.DataFrame) -> None:
     fig.savefig(PLOTS_DIR / "model_accuracy_comparison.png", dpi=300)
     plt.close(fig)
 
-
+# Plot model F1-score comparison bar chart
 def plot_model_f1(results_table: pd.DataFrame) -> None:
-    """Plot model F1-score comparison bar chart."""
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.bar(results_table["Model"], results_table["F1"], color="#F58518")
 
@@ -242,9 +229,8 @@ def plot_model_f1(results_table: pd.DataFrame) -> None:
     fig.savefig(PLOTS_DIR / "model_f1_comparison.png", dpi=300)
     plt.close(fig)
 
-
+# Plot confusion matrix for the best model
 def plot_best_confusion_matrix(best_metrics: dict) -> None:
-    """Plot confusion matrix for the best model."""
     matrix = best_metrics["confusion_matrix"]
 
     fig, ax = plt.subplots(figsize=(6, 5))
@@ -268,9 +254,8 @@ def plot_best_confusion_matrix(best_metrics: dict) -> None:
     fig.savefig(PLOTS_DIR / "best_model_confusion_matrix.png", dpi=300)
     plt.close(fig)
 
-
+# Plot feature importance if the best model is Random Forest
 def plot_feature_importance(best_pipeline: Pipeline, feature_names) -> None:
-    """Plot feature importance if the best model is Random Forest."""
     model = best_pipeline.named_steps["model"]
 
     if not hasattr(model, "feature_importances_"):
@@ -293,7 +278,7 @@ def plot_feature_importance(best_pipeline: Pipeline, feature_names) -> None:
     fig.savefig(PLOTS_DIR / "feature_importance.png", dpi=300)
     plt.close(fig)
 
-
+# Generate and save all required plots for the project
 def generate_plots(
     df: pd.DataFrame,
     results_table: pd.DataFrame,
@@ -301,9 +286,7 @@ def generate_plots(
     best_pipeline: Pipeline,
     feature_names,
 ) -> None:
-    """Generate and save all required plots for the project."""
     ensure_plots_folder()
-
     plot_churn_distribution(df)
     plot_correlation_heatmap(df)
     plot_feature_histograms(df)
@@ -312,14 +295,9 @@ def generate_plots(
     plot_best_confusion_matrix(best_metrics)
     plot_feature_importance(best_pipeline, feature_names)
 
-
+# Predict churn class and probability for a single customer
 def predict_customer_churn(customer_data: dict):
-    """Predict churn class and probability for a single customer.
 
-    Returns:
-        prediction (int): 0 or 1
-        probability (float): churn probability in percentage
-    """
     if not Path(MODEL_FILE).exists():
         raise FileNotFoundError(
             f"Model file '{MODEL_FILE}' not found. Train the model first."
@@ -346,7 +324,6 @@ def predict_customer_churn(customer_data: dict):
 
 
 def main():
-    """Run the full training workflow and save the best model."""
     df = load_dataset()
     inspect_dataset(df)
 
